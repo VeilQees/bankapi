@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bank App</title>
+
+    <style>
+
+        body{
+            background:#0f172a;
+            color:white;
+            font-family:sans-serif;
+            padding:20px;
+        }
+
+        .card{
+            background:#1e293b;
+            padding:15px;
+            margin:10px 0;
+            border-radius:12px;
+        }
+
+        button{
+            background:#2563eb;
+            border:none;
+            padding:8px 12px;
+            color:white;
+            border-radius:6px;
+            cursor:pointer;
+            margin-top:5px;
+        }
+
+        input, select{
+            padding:8px;
+            margin:5px;
+            border:none;
+            border-radius:6px;
+        }
+
+        .hidden{
+            display:none;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<h1>💳 Bank App</h1>
+
+<div class="card hidden" id="statsCard">
+
+    <h3>📊 Статистика</h3>
+
+    <div id="statsContent"></div>
+
+</div>
+
+<div id="authBlock">
+
+    <div class="card">
+
+        <h3>Логин</h3>
+
+        <input id="loginUsername" placeholder="username">
+
+        <input
+                id="loginPassword"
+                type="password"
+                placeholder="password"
+        >
+
+        <button onclick="login()">
+            Войти
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <h3>Регистрация</h3>
+
+        <input id="regUsername" placeholder="username">
+
+        <input
+                id="regPassword"
+                type="password"
+                placeholder="password"
+        >
+
+        <input id="firstName" placeholder="Имя">
+
+        <input id="lastName" placeholder="Фамилия">
+
+        <input id="birthDate" type="date">
+
+        <input id="phoneReg" placeholder="Телефон">
+
+        <button onclick="register()">
+            Регистрация
+        </button>
+
+    </div>
+
+</div>
+
+<div id="appBlock" class="hidden">
+
+    <button onclick="logout()">
+        Выйти
+    </button>
+
+    <hr>
+
+    <div class="card">
+
+        <h3>Создать счет</h3>
+
+        <input id="accountName" placeholder="Название">
+
+        <button onclick="createAccount()">
+            Создать
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <h3>Счета</h3>
+
+        <button onclick="getAccounts()">
+            Обновить
+        </button>
+
+        <div id="accounts"></div>
+
+    </div>
+
+    <div class="card">
+
+        <h3>Пополнение</h3>
+
+        <select id="depositSelect"></select>
+
+        <input
+                id="depositAmount"
+                placeholder="Сумма"
+        >
+
+        <button onclick="deposit()">
+            Пополнить
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <h3>Перевод между своими счетами</h3>
+
+        <select id="fromAccount"></select>
+
+        <select id="toAccount"></select>
+
+        <input
+                id="amountBetween"
+                placeholder="Сумма"
+        >
+
+        <button onclick="transferBetween()">
+            Перевести
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <h3>Перевод другому пользователю</h3>
+
+        <input
+                id="phoneTransfer"
+                placeholder="Телефон"
+        >
+
+        <input
+                id="amountTransfer"
+                placeholder="Сумма"
+        >
+
+        <select id="categorySelect"></select>
+
+        <button onclick="transferByPhone()">
+            Перевести
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <h3>История переводов</h3>
+
+        <input
+                type="datetime-local"
+                id="startDate"
+        >
+
+        <input
+                type="datetime-local"
+                id="endDate"
+        >
+
+        <button onclick="loadTransactions()">
+            Загрузить
+        </button>
+
+        <div id="transactions"></div>
+
+    </div>
+
+</div>
+
+<script>
+
+    const API = window.location.origin;
+
+    let token =
+        localStorage.getItem("token") || "";
+
+    async function apiFetch(
+        url,
+        options = {}
+    ) {
+
+        options.headers = {
+            ...(options.headers || {}),
+            'Authorization': 'Bearer ' + token
+        };
+
+        let response =
+            await fetch(url, options);
+
+        if(response.status === 401){
+
+            const refreshToken =
+                localStorage.getItem(
+                    "refreshToken"
+                );
+
+            if(refreshToken){
+
+                const refreshResponse =
+                    await window.fetch(
+                        `${API}/auth/refresh`,
+                        {
+                            method:'POST',
+
+                            headers:{
+                                'Content-Type':
+                                    'application/json'
+                            },
+
+                            body:JSON.stringify({
+                                refreshToken
+                            })
+                        }
+                    );
+
+                if(refreshResponse.ok){
+
+                    const refreshData =
+                        await refreshResponse.json();
+
+                    token =
+                        refreshData.accessToken;
+
+                    localStorage.setItem(
+                        "token",
+                        refreshData.accessToken
+                    );
+
+                    localStorage.setItem(
+                        "refreshToken",
+                        refreshData.refreshToken
+                    );
+
+                    options.headers[
+                        'Authorization'
+                    ] = 'Bearer ' + token;
+
+                    response =
+                        await fetch(url, options);
+
+                    return response;
+                }
+            }
+
+            logout();
+
+            alert(
+                "Сессия истекла. Войдите снова."
+            );
+
+            throw new Error("Unauthorized");
+        }
+
+        return response;
+    }
+
+    if(token){
+
+        showApp();
+
+        getAccounts();
+
+        loadCategories();
+
+        loadStats();
+    }
+
+    function showApp(){
+
+        authBlock.classList.add("hidden");
+
+        appBlock.classList.remove("hidden");
+    }
+
+    function showAuth(){
+
+        authBlock.classList.remove("hidden");
+
+        appBlock.classList.add("hidden");
+    }
+
+    async function extractError(response){
+
+        try {
+
+            const data =
+                await response.json();
+
+            return data.message
+                || data.error
+                || "Ошибка";
+
+        } catch (e){
+
+            return await response.text();
+        }
+    }
+
+    async function login(){
+
+        if(
+            !loginUsername.value
+            || !loginPassword.value
+        ){
+            alert("Заполните все поля");
+            return;
+        }
+
+        try {
+
+            const response =
+                await fetch(
+                    `${API}/auth/login`,
+                    {
+                        method:'POST',
+
+                        headers:{
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body:JSON.stringify({
+                            username:
+                                loginUsername.value,
+
+                            password:
+                                loginPassword.value
+                        })
+                    }
+                );
+
+            const text =
+                await response.text();
+
+            if(!response.ok){
+
+                const error =
+                    JSON.parse(text);
+
+                alert(
+                    error.message
+                    || error.error
+                );
+
+                return;
+            }
+
+            const data =
+                JSON.parse(text);
+
+            token =
+                data.accessToken;
+
+            localStorage.setItem(
+                "token",
+                data.accessToken
+            );
+
+            localStorage.setItem(
+                "refreshToken",
+                data.refreshToken
+            );
+
+            loginUsername.value = "";
+            loginPassword.value = "";
+
+            showApp();
+
+            await getAccounts();
+
+            await loadCategories();
+
+            await loadStats();
+
+        } catch (e){
+
+            console.error(e);
+
+            alert("Сервер недоступен");
+        }
+    }
+
+    async function register(){
+
+        try {
+
+            const response =
+                await fetch(
+                    `${API}/auth/register`,
+                    {
+                        method:'POST',
+
+                        headers:{
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body:JSON.stringify({
+                            username:
+                                regUsername.value,
+
+                            password:
+                                regPassword.value,
+
+                            firstName:
+                                firstName.value,
+
+                            lastName:
+                                lastName.value,
+
+                            middleName:"",
+
+                            birthDate:
+                                birthDate.value,
+
+                            phone:
+                                phoneReg.value
+                        })
+                    }
+                );
+
+            const text =
+                await response.text();
+
+            if(response.ok){
+
+                regUsername.value = "";
+                regPassword.value = "";
+                firstName.value = "";
+                lastName.value = "";
+                birthDate.value = "";
+                phoneReg.value = "";
+
+                alert("Регистрация успешна");
+
+            } else {
+
+                const error =
+                    JSON.parse(text);
+
+                alert(
+                    error.message
+                    || error.error
+                );
+            }
+
+        } catch (e){
+
+            console.error(e);
+
+            alert("Сервер недоступен");
+        }
+    }
+
+    function logout(){
+
+        token = "";
+
+        localStorage.removeItem("token");
+
+        localStorage.removeItem(
+            "refreshToken"
+        );
+
+        accounts.innerHTML = "";
+
+        transactions.innerHTML = "";
+
+        showAuth();
+    }
+
+    async function createAccount(){
+
+        if(!accountName.value){
+            alert("Введите название");
+            return;
+        }
+
+        try {
+
+            const response =
+                await apiFetch(
+                    `${API}/accounts`,
+                    {
+                        method:'POST',
+
+                        headers:{
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body:JSON.stringify({
+                            name:
+                                accountName.value
+                        })
+                    }
+                );
+
+            if(!response.ok){
+
+                const error =
+                    await extractError(response);
+
+                alert(error);
+
+                return;
+            }
+
+            accountName.value = "";
+
+            await getAccounts();
+
+        } catch (e){
+
+            console.error(e);
+
+            alert("Ошибка сети");
+        }
+    }
+
+    async function getAccounts(){
+
+        try {
+
+            const response =
+                await apiFetch(
+                    `${API}/accounts`
+                );
+
+            if(!response.ok){
+
+                const error =
+                    await extractError(response);
+
+                alert(error);
+
+                return;
+            }
+
+            const data =
+                await response.json();
+
+            let html = "";
+
+            fromAccount.innerHTML = "";
+            toAccount.innerHTML = "";
+            depositSelect.innerHTML = "";
+
+            data.forEach(acc => {
+
+                const primary =
+                    acc.primary
+                        ? " ⭐ ОСНОВНОЙ"
+                        : "";
+
+                html += `
+                    <div class="card">
+
+                        <b>${acc.name}</b>
+
+                        ${primary}
+
+                        <br><br>
+
+                        Баланс:
+                        ${acc.balance}
+
+                    </div>
+                `;
+
+                fromAccount.innerHTML += `
+                    <option value="${acc.name}">
+                        ${acc.name}
+                    </option>
+                `;
+
+                toAccount.innerHTML += `
+                    <option value="${acc.name}">
+                        ${acc.name}
+                    </option>
+                `;
+
+                depositSelect.innerHTML += `
+                    <option value="${acc.id}">
+                        ${acc.name}
+                    </option>
+                `;
+            });
+
+            accounts.innerHTML = html;
+
+        } catch (e){
+
+            console.error(e);
+        }
+    }
+
+    async function deposit(){
+
+        if(!depositAmount.value){
+            alert("Введите сумму");
+            return;
+        }
+
+        try {
+
+            const response =
+                await apiFetch(
+                    `${API}/accounts/deposit?accountId=${depositSelect.value}&amount=${Number(depositAmount.value)}`,
+                    {
+                        method:'POST'
+                    }
+                );
+
+            if(!response.ok){
+
+                const error =
+                    await extractError(response);
+
+                alert(error);
+
+                return;
+            }
+
+            depositAmount.value = "";
+
+            await getAccounts();
+
+            alert("Счет пополнен");
+
+        } catch (e){
+
+            console.error(e);
+
+            alert("Ошибка сети");
+        }
+    }
+
+    async function transferBetween(){
+
+        if(
+            fromAccount.value
+            ===
+            toAccount.value
+        ){
+            alert(
+                "Нельзя переводить на тот же счет"
+            );
+
+            return;
+        }
+
+        if(!amountBetween.value){
+            alert("Введите сумму");
+            return;
+        }
+
+        try {
+
+            const response =
+                await apiFetch(
+                    `${API}/accounts/transfer/by-name`,
+                    {
+                        method:'POST',
+
+                        headers:{
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body:JSON.stringify({
+                            fromName:
+                                fromAccount.value,
+
+                            toName:
+                                toAccount.value,
+
+                            amount:
+                                Number(
+                                    amountBetween.value
+                                ),
+
+                            categoryId:
+                                categorySelect.value
+                                    ? Number(
+                                        categorySelect.value
+                                    )
+                                    : null
+                        })
+                    }
+                );
+
+            if(response.ok){
+
+                amountBetween.value = "";
+
+                await getAccounts();
+
+                alert("Перевод выполнен");
+
+            } else {
+
+                const error =
+                    await extractError(response);
+
+                alert(error);
+            }
+
+        } catch (e){
+
+            console.error(e);
+
+            alert("Ошибка сети");
+        }
+    }
+
+    async function transferByPhone(){
+
+        if(
+            !phoneTransfer.value
+            || !amountTransfer.value
+        ){
+            alert("Заполните все поля");
+            return;
+        }
+
+        try {
+
+            const response =
+                await apiFetch(
+                    `${API}/accounts/transfer/phone`,
+                    {
+                        method:'POST',
+
+                        headers:{
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body:JSON.stringify({
+                            phone:
+                                phoneTransfer.value,
+
+                            amount:
+                                Number(
+                                    amountTransfer.value
+                                ),
+
+                            categoryId:
+                                categorySelect.value
+                                    ? Number(
+                                        categorySelect.value
+                                    )
+                                    : null
+                        })
+                    }
+                );
+
+            if(response.ok){
+
+                amountTransfer.value = "";
+                phoneTransfer.value = "";
+
+                await getAccounts();
+
+                alert("Перевод выполнен");
+
+            } else {
+
+                const error =
+                    await extractError(response);
+
+                alert(error);
+            }
+
+        } catch (e){
+
+            console.error(e);
+
+            alert("Ошибка сети");
+        }
+    }
+
+    async function loadTransactions(){
+
+        try {
+
+            let url =
+                `${API}/transactions`;
+
+            if(
+                startDate.value
+                &&
+                endDate.value
+            ){
+
+                url +=
+                    `?start=${startDate.value}:00&end=${endDate.value}:59`;
+            }
+
+            const response =
+                await apiFetch(url);
+
+            if(!response.ok){
+
+                const error =
+                    await extractError(response);
+
+                alert(error);
+
+                return;
+            }
+
+            const data =
+                await response.json();
+
+            let html = "";
+
+            data.forEach(t => {
+
+                html += `
+                    <div class="card">
+
+                        <b>${t.fromUser}</b>
+
+                        →
+
+                        <b>${t.toUser}</b>
+
+                        <br><br>
+
+                        Сумма:
+                        ${t.amount}
+
+                        <br><br>
+
+                        ${t.createdAt}
+
+                        <br><br>
+
+                        Категория:
+                        ${t.category || "Без категории"}
+
+                    </div>
+                `;
+            });
+
+            transactions.innerHTML = html;
+
+        } catch (e){
+
+            console.error(e);
+
+            alert("Ошибка сети");
+        }
+    }
+
+    async function loadCategories(){
+
+        try {
+
+            const response =
+                await apiFetch(
+                    `${API}/categories`
+                );
+
+            if(!response.ok){
+                return;
+            }
+
+            const data =
+                await response.json();
+
+            categorySelect.innerHTML = "";
+
+            data.forEach(cat => {
+
+                categorySelect.innerHTML += `
+                    <option value="${cat.id}">
+                        ${cat.name}
+                    </option>
+                `;
+            });
+
+        } catch (e){
+
+            console.error(e);
+        }
+
+        async function loadStats(){
+
+    try {
+
+        const response =
+            await apiFetch(
+                `${API}/stats/transactions`
+            );
+
+        if(!response.ok){
+            return;
+        }
+
+        const data =
+            await response.json();
+
+        statsContent.innerHTML = `
+
+            <div>
+                Доход:
+                ${data.totalIncome}
+            </div>
+
+            <br>
+
+            <div>
+                Расход:
+                ${data.totalExpense}
+            </div>
+
+            <br>
+
+            <div>
+                Итог:
+                ${data.net}
+            </div>
+        `;
+
+        statsCard.classList.remove("hidden");
+
+    } catch (e){
+
+        console.error(e);
+    }
+}
+
+
+    }
+
+</script>
+
+</body>
+</html>
