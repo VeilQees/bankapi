@@ -1,12 +1,38 @@
 import { useEffect, useState } from "react";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
+import "../App.css";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
 
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [primaryAccountId, setPrimaryAccountId] = useState<number | null>(null);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
+
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAccountId, setDepositAccountId] =
+    useState<number | null>(null);
+  const [depositAmount, setDepositAmount] =
+    useState("");
+
+  const [showTransferModal, setShowTransferModal] = useState(false);
+
+  const [transferForm, setTransferForm] = useState({
+    fromId: "",
+    toId: "",
+    amount: "",
+  });
+
+const [showPhoneTransferModal, setShowPhoneTransferModal] =
+  useState(false);
+
+const [phoneTransferForm, setPhoneTransferForm] =
+  useState({
+    phone: "",
+    amount: "",
+  });
 
   const logout = () => {
     localStorage.removeItem("accessToken");
@@ -17,149 +43,437 @@ export default function DashboardPage() {
     try {
       const response = await api.get("/accounts");
       setAccounts(response.data);
-
-      const primary = response.data.find((a: any) => a.primary);
-
-      if (primary) {
-        setPrimaryAccountId(primary.id);
-      }
-
     } catch (e) {
       console.error(e);
     }
   };
 
   const createAccount = async () => {
-    const name = prompt("Название счёта");
+    if (!newAccountName.trim()) return;
 
-    if (!name) return;
+    try {
+      await api.post("/accounts", {
+        name: newAccountName,
+      });
 
-    await api.post("/accounts", {
-      name,
-    });
+      setNewAccountName("");
+      setShowCreateModal(false);
 
-    loadAccounts();
+      loadAccounts();
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка создания счёта");
+    }
   };
 
-  const deposit = async (accountId: number) => {
-    const amount = prompt("Сумма пополнения");
+  const deposit = async () => {
+    if (!depositAccountId) return;
 
-    if (!amount) return;
+    try {
+      await api.post("/accounts/deposit", {
+        accountId: depositAccountId,
+        amount: Number(depositAmount),
+      });
 
-    await api.post("/accounts/deposit", {
-      accountId,
-      amount: Number(amount),
-    });
+      setDepositAmount("");
+      setDepositAccountId(null);
+      setShowDepositModal(false);
 
-    loadAccounts();
+      loadAccounts();
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка пополнения");
+    }
   };
 
-  const transferBetweenAccounts = async () => {
-    if (accounts.length < 2) {
-      alert("Нужно минимум 2 счёта");
+const transferBetweenAccounts = async () => {
+  try {
+    await api.post(
+      `/accounts/transfer?fromId=${transferForm.fromId}&toId=${transferForm.toId}&amount=${transferForm.amount}`
+    );
+
+    setTransferForm({
+      fromId: "",
+      toId: "",
+      amount: "",
+    });
+
+    setShowTransferModal(false);
+
+    loadAccounts();
+  } catch (e) {
+    console.error(e);
+    alert("Ошибка перевода");
+  }
+};
+
+const transferByPhone = async () => {
+  try {
+
+    if (
+      !phoneTransferForm.phone ||
+      !phoneTransferForm.amount
+    ) {
+      alert("Заполните все поля");
       return;
     }
 
-    const fromId = prompt("ID счёта отправителя");
-    const toId = prompt("ID счёта получателя");
-    const amount = prompt("Сумма");
-
-    if (!fromId || !toId || !amount) return;
-
     await api.post(
-      `/accounts/transfer?fromId=${fromId}&toId=${toId}&amount=${amount}`
+      "/accounts/transfer/phone",
+      {
+        phone: phoneTransferForm.phone,
+        amount: Number(
+          phoneTransferForm.amount
+        ),
+        categoryId: 1,
+      }
     );
 
+    setPhoneTransferForm({
+      phone: "",
+      amount: "",
+    });
+
+    setShowPhoneTransferModal(false);
+
     loadAccounts();
-  };
 
- const transferByPhone = async () => {
-   const phone = window.prompt("Телефон получателя");
-
-   if (!phone) return;
-
-   const amountInput = window.prompt("Введите сумму перевода");
-
-   if (!amountInput) return;
-
-   const amount = Number(amountInput);
-
-   if (isNaN(amount)) {
-     alert("Некорректная сумма");
-     return;
-   }
-
-   try {
-     await api.post("/accounts/transfer/phone", {
-       phone,
-       amount,
-       categoryId: 1
-     });
-
-     await loadAccounts();
-
-     alert("Перевод выполнен");
-   } catch (e) {
-     console.error(e);
-     alert("Ошибка перевода");
-   }
- };
+  } catch (e) {
+    console.error(e);
+    alert("Ошибка перевода");
+  }
+};
 
   useEffect(() => {
     loadAccounts();
   }, []);
 
+  const totalBalance = accounts.reduce(
+    (sum, account) => sum + Number(account.balance),
+    0
+  );
+
   return (
-    <div style={{ padding: "30px" }}>
-      <h1>Bank Dashboard</h1>
+    <div className="dashboard">
 
-      <button onClick={createAccount}>
-        Создать счёт
-      </button>
+      <div className="dashboard-header">
 
-      <br /><br />
+        <div>
+          <h1>Welcome back 👋</h1>
+          <p>Manage your accounts and transfers</p>
+        </div>
 
-      <button onClick={transferBetweenAccounts}>
-        Перевод между счетами
-      </button>
-
-      <br /><br />
-
-      <button onClick={transferByPhone}>
-        Перевод по номеру телефона
-      </button>
-
-      <br /><br />
-
-      <h2>Мои счета</h2>
-
-      {accounts.map((account: any) => (
-        <div
-          key={account.id}
-          style={{
-            border: "1px solid gray",
-            padding: "10px",
-            marginBottom: "10px"
-          }}
+        <button
+          className="logout-btn"
+          onClick={logout}
         >
-          <div>ID: {account.id}</div>
-          <div>Название: {account.name}</div>
-          <div>Баланс: {account.balance}</div>
-          <div>
-            {account.primary ? "Основной счёт" : ""}
+          Logout
+        </button>
+
+      </div>
+
+      <div className="balance-card">
+
+        <div className="balance-title">
+          Total Balance
+        </div>
+
+        <div className="balance-amount">
+          {totalBalance.toLocaleString()} ₽
+        </div>
+
+      </div>
+
+      <div className="dashboard-actions">
+
+        <button
+          className="action-btn"
+          onClick={() => setShowCreateModal(true)}
+        >
+          Create Account
+        </button>
+
+        <button
+          className="action-btn"
+          onClick={() => setShowTransferModal(true)}
+        >
+          Transfer
+        </button>
+
+        <button
+          className="action-btn"
+          onClick={() =>
+            setShowPhoneTransferModal(true)
+          }
+        >
+          Transfer by Phone
+        </button>
+
+      </div>
+
+      <h2 style={{ marginBottom: "20px" }}>
+        My Accounts
+      </h2>
+
+      <div className="accounts-grid">
+
+        {accounts.map((account: any) => (
+
+          <div
+            key={account.id}
+            className="account-card"
+          >
+
+            <div className="account-name">
+              💳 {account.name}
+            </div>
+
+            <div className="account-balance">
+              {account.balance} ₽
+            </div>
+
+            <div className="account-meta">
+              ID #{account.id}
+            </div>
+
+            <div className="account-meta">
+              {account.primary
+                ? "Primary Account"
+                : "Additional Account"}
+            </div>
+
+            <div className="account-actions">
+
+              <button
+                className="account-btn"
+                onClick={() => {
+                  setDepositAccountId(account.id);
+                  setShowDepositModal(true);
+                }}
+              >
+                Deposit
+              </button>
+
+            </div>
+
           </div>
 
-          <button onClick={() => deposit(account.id)}>
-            Пополнить
-          </button>
+        ))}
+
+      </div>
+
+      {showCreateModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+
+            <div className="modal-title">
+              Create Account
+            </div>
+
+            <input
+              placeholder="Account name"
+              value={newAccountName}
+              onChange={(e) =>
+                setNewAccountName(e.target.value)
+              }
+            />
+
+            <div className="modal-actions">
+
+              <button
+                className="modal-btn cancel-btn"
+                onClick={() =>
+                  setShowCreateModal(false)
+                }
+              >
+                Cancel
+              </button>
+
+              <button
+                className="modal-btn"
+                onClick={createAccount}
+              >
+                Create
+              </button>
+
+            </div>
+
+          </div>
         </div>
-      ))}
+      )}
 
-      <br />
+      {showDepositModal && (
+        <div className="modal-overlay">
+          <div className="modal">
 
-      <button onClick={logout}>
-        Выйти
-      </button>
+            <div className="modal-title">
+              Deposit
+            </div>
+
+            <input
+              placeholder="Amount"
+              value={depositAmount}
+              onChange={(e) =>
+                setDepositAmount(e.target.value)
+              }
+            />
+
+            <div className="modal-actions">
+
+              <button
+                className="modal-btn cancel-btn"
+                onClick={() =>
+                  setShowDepositModal(false)
+                }
+              >
+                Cancel
+              </button>
+
+              <button
+                className="modal-btn"
+                onClick={deposit}
+              >
+                Confirm
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
+  {showTransferModal && (
+    <div className="modal-overlay">
+
+      <div className="modal">
+
+        <div className="modal-title">
+          Transfer Between Accounts
+        </div>
+
+        <input
+          placeholder="From Account ID"
+          value={transferForm.fromId}
+          onChange={(e) =>
+            setTransferForm({
+              ...transferForm,
+              fromId: e.target.value,
+            })
+          }
+        />
+
+        <br />
+        <br />
+
+        <input
+          placeholder="To Account ID"
+          value={transferForm.toId}
+          onChange={(e) =>
+            setTransferForm({
+              ...transferForm,
+              toId: e.target.value,
+            })
+          }
+        />
+
+        <br />
+        <br />
+
+        <input
+          placeholder="Amount"
+          value={transferForm.amount}
+          onChange={(e) =>
+            setTransferForm({
+              ...transferForm,
+              amount: e.target.value,
+            })
+          }
+        />
+
+        <div className="modal-actions">
+
+          <button
+            className="modal-btn cancel-btn"
+            onClick={() =>
+              setShowTransferModal(false)
+            }
+          >
+            Cancel
+          </button>
+
+          <button
+            className="modal-btn"
+            onClick={transferBetweenAccounts}
+          >
+            Transfer
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+  )}
+
+  {showPhoneTransferModal && (
+    <div className="modal-overlay">
+
+      <div className="modal">
+
+        <div className="modal-title">
+          Transfer by Phone
+        </div>
+
+        <input
+          placeholder="+79991234567"
+          value={phoneTransferForm.phone}
+          onChange={(e) =>
+            setPhoneTransferForm({
+              ...phoneTransferForm,
+              phone: e.target.value,
+            })
+          }
+        />
+
+        <br />
+        <br />
+
+        <input
+          placeholder="Amount"
+          value={phoneTransferForm.amount}
+          onChange={(e) =>
+            setPhoneTransferForm({
+              ...phoneTransferForm,
+              amount: e.target.value,
+            })
+          }
+        />
+
+        <div className="modal-actions">
+
+          <button
+            className="modal-btn cancel-btn"
+            onClick={() =>
+              setShowPhoneTransferModal(false)
+            }
+          >
+            Cancel
+          </button>
+
+          <button
+            className="modal-btn"
+            onClick={transferByPhone}
+          >
+            Transfer
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+  )}
+
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/api";
+import "../App.css";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -16,8 +17,18 @@ export default function RegisterPage() {
   });
 
   const register = async () => {
+      if (
+        !form.username ||
+        !form.password ||
+        !form.firstName ||
+        !form.lastName
+      ) {
+        alert("Заполните обязательные поля");
+        return;
+      }
+
     try {
-      const payload = {
+      await api.post("/auth/register", {
         username: form.username,
         password: form.password,
         firstName: form.firstName,
@@ -25,110 +36,98 @@ export default function RegisterPage() {
         middleName: form.middleName,
         phone: form.phone,
         birthDate: form.birthDate,
-      };
-
-      console.log("REGISTER PAYLOAD:", payload);
-
-      const response = await api.post("/auth/register", payload);
-
-      if (response.data.accessToken) {
-        localStorage.setItem(
-          "accessToken",
-          response.data.accessToken
-        );
-
-        navigate("/dashboard");
-      } else {
-        navigate("/login");
-      }
+      });
 
       alert("Регистрация успешна");
 
       navigate("/login");
-
     } catch (error) {
       console.error(error);
       alert("Ошибка регистрации");
     }
+
   };
 
   return (
-    <div style={{ padding: "40px" }}>
-      <h1>Register</h1>
+    <div className="auth-page">
+      <div className="auth-card">
 
-      <input
-        placeholder="Username"
-        onChange={(e) =>
-          setForm({ ...form, username: e.target.value })
-        }
-      />
+        <div className="auth-logo">
+          BANK API
+        </div>
 
-      <br /><br />
+        <div className="auth-subtitle">
+          Create your account
+        </div>
 
-      <input
-        type="password"
-        placeholder="Password"
-        onChange={(e) =>
-          setForm({ ...form, password: e.target.value })
-        }
-      />
+        <div className="auth-form">
 
-      <br /><br />
+          <input
+            placeholder="Username"
+            onChange={(e) =>
+              setForm({ ...form, username: e.target.value })
+            }
+          />
 
-      <input
-        placeholder="Имя"
-        onChange={(e) =>
-          setForm({ ...form, firstName: e.target.value })
-        }
-      />
+          <input
+            type="password"
+            placeholder="Password"
+            onChange={(e) =>
+              setForm({ ...form, password: e.target.value })
+            }
+          />
 
-      <br /><br />
+          <input
+            placeholder="First name"
+            onChange={(e) =>
+              setForm({ ...form, firstName: e.target.value })
+            }
+          />
 
-      <input
-        placeholder="Фамилия"
-        onChange={(e) =>
-          setForm({ ...form, lastName: e.target.value })
-        }
-      />
+          <input
+            placeholder="Last name"
+            onChange={(e) =>
+              setForm({ ...form, lastName: e.target.value })
+            }
+          />
 
-      <br /><br />
+          <input
+            placeholder="Middle name"
+            onChange={(e) =>
+              setForm({ ...form, middleName: e.target.value })
+            }
+          />
 
-      <input
-        placeholder="Отчество"
-        onChange={(e) =>
-          setForm({ ...form, middleName: e.target.value })
-        }
-      />
+          <input
+            placeholder="Phone"
+            onChange={(e) =>
+              setForm({ ...form, phone: e.target.value })
+            }
+          />
 
-      <br /><br />
+          <input
+            type="date"
+            onChange={(e) =>
+              setForm({ ...form, birthDate: e.target.value })
+            }
+          />
 
-      <input
-        placeholder="Телефон"
-        onChange={(e) =>
-          setForm({ ...form, phone: e.target.value })
-        }
-      />
+          <button
+            className="primary-btn"
+            onClick={register}
+          >
+            Create Account
+          </button>
 
-      <br /><br />
+        </div>
 
-      <input
-        type="date"
-        onChange={(e) =>
-          setForm({ ...form, birthDate: e.target.value })
-        }
-      />
+        <div className="auth-footer">
+          <Link to="/login">
+            Back to Login
+          </Link>
+        </div>
 
-      <br /><br />
-
-      <button onClick={register}>
-        Register
-      </button>
-
-      <br /><br />
-
-      <Link to="/login">
-        Назад ко входу
-      </Link>
+      </div>
     </div>
   );
 }
