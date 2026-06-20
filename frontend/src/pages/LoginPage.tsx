@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/api";
+import "../App.css";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -8,62 +9,74 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-const login = async () => {
-  try {
-    const response = await api.post("/auth/login", {
-      username,
-      password,
-    });
+  const login = async () => {
+    try {
+      const response = await api.post("/auth/login", {
+        username,
+        password,
+      });
 
-    localStorage.setItem(
-      "accessToken",
-      response.data.accessToken
-    );
+      localStorage.setItem(
+        "accessToken",
+        response.data.accessToken
+      );
 
-    await api.get("/accounts");
+      await api.get("/accounts");
 
-    navigate("/dashboard");
-
-  } catch (error) {
-    console.error(error);
-    alert("Неверный логин или пароль");
-  }
-};
+      navigate("/dashboard");
+    } catch (error) {
+        console.error(error);
+        alert("Неверный логин или пароль");
+      }
+  };
 
   return (
-    <div style={{ padding: "40px" }}>
-      <h1>Login</h1>
+    <div className="auth-page">
+      <div className="auth-card">
 
-      <input
-        placeholder="Username"
-        value={username}
-        onChange={(e) =>
-          setUsername(e.target.value)
-        }
-      />
+        <div className="auth-logo">
+          BANK API
+        </div>
 
-      <br /><br />
+        <div className="auth-subtitle">
+          Modern Banking Experience
+        </div>
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) =>
-          setPassword(e.target.value)
-        }
-      />
+        <div className="auth-form">
 
-      <br /><br />
+          <input
+            placeholder="Username"
+            value={username}
+            onChange={(e) =>
+              setUsername(e.target.value)
+            }
+          />
 
-      <button onClick={login}>
-        Login
-      </button>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+          />
 
-      <br /><br />
+          <button
+            className="primary-btn"
+            onClick={login}
+          >
+            Sign In
+          </button>
 
-      <Link to="/register">
-        Нет аккаунта? Зарегистрироваться
-      </Link>
+        </div>
+
+        <div className="auth-footer">
+          <Link to="/register">
+            Создать аккаунт
+          </Link>
+        </div>
+
+      </div>
     </div>
   );
 }

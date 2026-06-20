@@ -135,7 +135,6 @@ public class AccountService {
             throw new BadRequestException("Недостаточно средств");
         }
 
-        // 🔥 ВОТ ФИКС
         Category category = null;
 
         if (categoryId != null) {
@@ -171,7 +170,7 @@ public class AccountService {
         );
     }
 
-    // 🔥 история
+    // история переводоы
     public List<Transaction> getTransactions(String start, String end) {
 
         String username = getCurrentUsername();
