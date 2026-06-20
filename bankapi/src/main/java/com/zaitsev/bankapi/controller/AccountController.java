@@ -25,7 +25,7 @@ public class AccountController {
         return accountService.createAccount(request);
     }
 
-    // 🔥 ПОЛУЧЕНИЕ СЧЕТОВ
+    // получение счетов
     @GetMapping
     public List<AccountResponse> getAccounts() {
 

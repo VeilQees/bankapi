@@ -195,6 +195,13 @@ const transferByPhone = async () => {
 
         <button
           className="action-btn"
+          onClick={() => navigate("/transactions")}
+        >
+          History
+        </button>
+
+        <button
+          className="action-btn"
           onClick={() => setShowTransferModal(true)}
         >
           Transfer

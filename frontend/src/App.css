@@ -316,3 +316,19 @@
 .cancel-btn {
   background: #374151;
 }
+
+.transaction-card {
+  min-height: auto;
+  padding: 24px;
+}
+
+.transaction-amount {
+  font-size: 42px;
+  font-weight: 700;
+  margin: 16px 0;
+}
+
+.transaction-date {
+  opacity: 0.7;
+  font-size: 14px;
+}
